@@ -272,6 +272,12 @@ button.on {
     font-weight: 600;
 }
 
+/* A lit button keeps its dark label under the pointer; the hover colour above would otherwise
+   paint it accent on accent and make the word disappear. */
+button.on:hover:not(:disabled) {
+    color: #041018;
+}
+
 button.danger.on {
     background: var(--accent-2);
     border-color: var(--accent-2);
