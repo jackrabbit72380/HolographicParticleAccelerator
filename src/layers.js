@@ -2,13 +2,15 @@
  *  Jackrabbit72380
  *  2026
  *
- *  The two layers, side by side: the target in front, the background behind it. Each has its own
- *  on/off, and the background has its own source — any built-in shape, or a picture or model you
- *  load just for it — plus its own size, turn, brightness and band height, so it can move
- *  independently of the target.
+ *  One layer at a time. A Layer selector offers the target layer and the background layer, and
+ *  the controls under it — on/off, source, load, size, turn, brightness, band height — belong to
+ *  whichever one is chosen. Both layers therefore have the same set of properties, in the same
+ *  order and the same units, and the panel stays a single column instead of two sets of controls.
  *
- *  Target off is a blank shape: the engine has no opacity of its own for the target, and a shape
- *  with no points is the one thing that draws nothing at all while it is off.
+ *  The engine draws the background from its own LAYER_* settings; the target has no size, turn or
+ *  brightness of its own, so the target layer's controls drive the engine settings that only it
+ *  moves: ZOOM, ROTATE_SPEED, GLOW and EQ_HEIGHT. Target off is a blank shape, because the engine
+ *  has no opacity for the target and a shape with no points is the one thing that draws nothing.
  */
 
 (() => {
@@ -17,7 +19,7 @@
   const root = document.getElementById('sections');
   if (!root) return;
 
-  // The shapes the Target list offers, without the ones that only make sense as a target:
+  // The shapes the background can be, without the ones that only make sense as a target:
   // an imported mesh lives in memory, and a picture is flat.
   const SHAPES = [
     ['ball', 'Ball (3D)'],
@@ -34,6 +36,8 @@
   ];
 
   const BLANK = 'hpaBlank';
+  const turn = Math.PI * 2;
+  const BAND = 2.2;         // world height a full band height means, as EQ_HEIGHT ships
 
   function engine() {
     const offered = window.HPA_PLAYER;
@@ -83,6 +87,7 @@
   /*--- Files for the background ---*/
 
   let fileCount = 0;
+  const loaded = new Map();
 
   // A point cloud from anything the panel can read: a picture, an .obj, or an ASCII .ply.
   function fit(points, world) {
@@ -243,9 +248,8 @@
     throw new Error('use an image, .obj or .ply');
   }
 
-  /*--- The panel ---*/
+  /*--- The target list keeps the blob ---*/
 
-  // The blob is a target like any other, so it belongs in the Target list.
   const targetSelect = root.querySelector('select');
   if (targetSelect && !Array.from(targetSelect.options).some((option) => option.value === 'blob3d')) {
     const option = el('option', '', 'Blob (3D, audio)');
@@ -257,40 +261,42 @@
     });
   }
 
+  /*--- The panel ---*/
+
   const panel = el('div', 'section');
   panel.appendChild(el('h2', '', 'Layers'));
 
-  // Both toggles on one row: target on the left, background on the right.
-  const toggles = el('div', 'buttons');
-  panel.appendChild(toggles);
-
-  const targetButton = el('button', '', 'Target');
-  targetButton.type = 'button';
-  targetButton.setAttribute('role', 'checkbox');
-  toggles.appendChild(targetButton);
-
-  const layerButton = el('button', '', 'Background');
-  layerButton.type = 'button';
-  layerButton.setAttribute('role', 'checkbox');
-  toggles.appendChild(layerButton);
-
-  // Background: its own source, shapes or a file of its own.
-  const sourceRow = el('div', 'row wide');
-  sourceRow.appendChild(el('span', 'label', 'Background source'));
-  const sourceSelect = el('select');
-  for (const [value, label] of SHAPES) {
+  // Which layer the controls below belong to.
+  const layerRow = el('div', 'row wide');
+  layerRow.appendChild(el('span', 'label', 'Layer'));
+  const layerSelect = el('select');
+  for (const [value, label] of [['target', 'Target layer'], ['background', 'Background layer']]) {
     const option = el('option', '', label);
-    option.value = value + ':layer';
-    sourceSelect.appendChild(option);
+    option.value = value;
+    layerSelect.appendChild(option);
   }
+  layerRow.appendChild(layerSelect);
+  panel.appendChild(layerRow);
+
+  // On or off, and where its points come from: both act on the layer being shown.
+  const actionRow = el('div', 'buttons');
+  const onButton = el('button', '', 'On');
+  onButton.type = 'button';
+  onButton.setAttribute('role', 'checkbox');
+  actionRow.appendChild(onButton);
+
+  const loadButton = el('button', '', 'Load…');
+  loadButton.type = 'button';
+  actionRow.appendChild(loadButton);
+  panel.appendChild(actionRow);
+
+  // Where that layer's points come from.
+  const sourceRow = el('div', 'row wide');
+  sourceRow.style.marginTop = '4px';
+  sourceRow.appendChild(el('span', 'label', 'Source'));
+  const sourceSelect = el('select');
   sourceRow.appendChild(sourceSelect);
   panel.appendChild(sourceRow);
-
-  const loadRow = el('div', 'buttons');
-  const loadButton = el('button', '', 'Load for background…');
-  loadButton.type = 'button';
-  loadRow.appendChild(loadButton);
-  panel.appendChild(loadRow);
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
@@ -300,115 +306,244 @@
 
   /*--- State ---*/
 
+  let current = 'target';
   let targetOn = true;
+  let backgroundOn = false;
   let lastTarget = 'ball';
-  let switchedOn = false;
-  let chosen = 'ball:layer';
+  let chosenBackground = 'ball:layer';
 
-  function paint() {
-    targetButton.classList.toggle('on', targetOn);
-    targetButton.setAttribute('aria-checked', targetOn ? 'true' : 'false');
+  /**
+   * The four properties, once for each layer: the same labels, the same ranges, the same units.
+   * read/write move between the slider's own unit and whatever CONFIG key that layer uses.
+   */
+  const PROPS = {
+    target: [
+      {
+        label: 'Size', min: 0.8, max: 8, step: 0.1,
+        read: (c) => Number(c.ZOOM) || 1,
+        write: (v) => ({ ZOOM: v }),
+        show: (v) => `${v.toFixed(1)}×`
+      },
+      {
+        label: 'Turn', min: -0.5, max: 0.5, step: 0.005,
+        read: (c) => (Number(c.ROTATE_SPEED) || 0) / turn,
+        write: (v) => ({ ROTATE_SPEED: v * turn }),
+        show: (v) => `${v.toFixed(3)} turns/s`
+      },
+      {
+        // The engine has no brightness for the target, so this is its glow, read as a percentage
+        // of the range the Look section calls Glow falloff.
+        label: 'Brightness', min: 0, max: 100, step: 1,
+        read: (c) => ((Number(c.GLOW) || 2) - 2) * 5,
+        write: (v) => ({ GLOW: 2 + v / 5 }),
+        show: (v) => `${Math.round(v)}%`
+      },
+      {
+        label: 'Band height', min: 0, max: 2, step: 0.05,
+        read: (c) => (Number(c.EQ_HEIGHT) || BAND) / BAND,
+        write: (v) => ({ EQ_HEIGHT: v * BAND }),
+        show: (v) => `${v.toFixed(2)}×`
+      }
+    ],
+    background: [
+      {
+        label: 'Size', min: 0.8, max: 8, step: 0.1,
+        read: (c) => Number(c.LAYER_SCALE) || 3,
+        write: (v) => ({ LAYER_SCALE: v }),
+        show: (v) => `${v.toFixed(1)}×`
+      },
+      {
+        label: 'Turn', min: -0.5, max: 0.5, step: 0.005,
+        read: (c) => (Number(c.LAYER_SPIN) || 0) / turn,
+        write: (v) => ({ LAYER_SPIN: v * turn }),
+        show: (v) => `${v.toFixed(3)} turns/s`
+      },
+      {
+        label: 'Brightness', min: 0, max: 100, step: 1,
+        read: (c) => (Number(c.LAYER_ALPHA) || 0) * 100,
+        write: (v) => ({ LAYER_ALPHA: v / 100 }),
+        show: (v) => `${Math.round(v)}%`
+      },
+      {
+        // Baked into the layer's own points, so it is the one setting that needs a rebuild.
+        label: 'Band height', min: 0, max: 2, step: 0.05,
+        read: () => bandHeight,
+        write: (v) => { bandHeight = v; return { LAYER_BAND: v }; },
+        show: (v) => `${v.toFixed(2)}×`
+      }
+    ]
+  };
 
-    layerButton.classList.toggle('on', switchedOn);
-    layerButton.setAttribute('aria-checked', switchedOn ? 'true' : 'false');
+  const sliders = [];
 
-    sourceSelect.disabled = !switchedOn;
-    loadButton.disabled = !switchedOn;
+  for (const spec of PROPS.target) {
+    const row = el('div', 'row');
+    const shown = el('span', 'value', spec.show(spec.min));
+    const input = el('input');
+    input.type = 'range';
+    input.min = spec.min;
+    input.max = spec.max;
+    input.step = spec.step;
+    input.value = spec.min;
+    row.append(el('span', 'label', spec.label), shown, input);
+    panel.appendChild(row);
+    sliders.push({ shown, input });
   }
 
-  targetButton.addEventListener('click', () => {
-    const api = engine();
-    if (!api) return;
-    targetOn = !targetOn;
+  sliders.forEach(({ shown, input }, index) => {
+    input.addEventListener('input', () => {
+      const spec = PROPS[current][index];
+      const value = Number(input.value);
+      shown.textContent = spec.show(value);
+      const patch = spec.write(value);
+      apply(patch);
+      // A changed band height is only baked into the points when the layer is rebuilt.
+      if (current === 'background' && 'LAYER_BAND' in patch && backgroundOn) {
+        apply({ LAYER_SRC: chosenBackground });
+      }
+    });
+  });
 
-    if (targetOn) {
-      apply({ MODE: 'shape', MASK_SRC: lastTarget && lastTarget !== BLANK ? lastTarget : 'ball' });
-    } else {
-      if (api.config.MASK_SRC && api.config.MASK_SRC !== BLANK) lastTarget = api.config.MASK_SRC;
-      apply({ MODE: 'shape', MASK_SRC: BLANK });
+  /*--- Keeping the panel and the engine in step ---*/
+
+  function refreshSliders() {
+    const api = engine();
+    const config = (api && api.config) || {};
+    const specs = PROPS[current];
+
+    sliders.forEach(({ shown, input }, index) => {
+      if (document.activeElement === input) return;
+      const spec = specs[index];
+      const raw = Number(spec.read(config));
+      const value = Number.isFinite(raw) ? Math.min(spec.max, Math.max(spec.min, raw)) : spec.min;
+      input.value = value;
+      shown.textContent = spec.show(value);
+    });
+  }
+
+  function fillSources() {
+    sourceSelect.textContent = '';
+
+    if (current === 'target') {
+      // The Target section owns the list, so its options are mirrored rather than repeated.
+      const options = targetSelect ? Array.from(targetSelect.options) : [];
+      for (const option of options) {
+        const copy = el('option', '', option.textContent);
+        copy.value = option.value;
+        sourceSelect.appendChild(copy);
+      }
+      if (targetSelect) sourceSelect.value = targetSelect.value;
+      return;
     }
+
+    for (const [value, label] of SHAPES) {
+      const option = el('option', '', label);
+      option.value = value + ':layer';
+      sourceSelect.appendChild(option);
+    }
+    for (const [key, label] of loaded) {
+      const option = el('option', '', label);
+      option.value = key;
+      sourceSelect.appendChild(option);
+    }
+    sourceSelect.value = chosenBackground;
+  }
+
+  // The cheap half of a repaint: what changed under the panel without its options being rebuilt,
+  // so an open select is never pulled out from under the pointer.
+  function updateFlags() {
+    layerSelect.value = current;
+
+    const on = current === 'target' ? targetOn : backgroundOn;
+    const label = on ? 'On' : 'Off';
+    if (onButton.textContent !== label) onButton.textContent = label;
+    onButton.classList.toggle('on', on);
+    onButton.setAttribute('aria-checked', on ? 'true' : 'false');
+    onButton.title = current === 'target' ? 'Show or hide the target layer' : 'Show or hide the background layer';
+
+    sourceSelect.disabled = !on;
+    loadButton.disabled = !on;
+
+    if (document.activeElement !== sourceSelect) {
+      const chosen = current === 'target' ? targetSource() : chosenBackground;
+      if (chosen && sourceSelect.value !== chosen) sourceSelect.value = chosen;
+    }
+  }
+
+  // The target's own mask is the truth when the list offers it; the Target section's select is the
+  // fallback, because it names the audio modes and the glyph that the mask cannot describe.
+  function targetSource() {
+    const api = engine();
+    const mask = String((api && api.config && api.config.MASK_SRC) || '');
+    if (mask && Array.from(sourceSelect.options).some((option) => option.value === mask)) return mask;
+    return targetSelect ? targetSelect.value : sourceSelect.value;
+  }
+
+  function paint() {
+    fillSources();
+    updateFlags();
+    refreshSliders();
+  }
+
+  layerSelect.addEventListener('change', () => {
+    current = layerSelect.value;
     paint();
   });
 
-  layerButton.addEventListener('click', () => {
-    switchedOn = !switchedOn;
+  onButton.addEventListener('click', () => {
+    const api = engine();
+    if (!api) return;
+
+    if (current === 'target') {
+      targetOn = !targetOn;
+      if (targetOn) {
+        apply({ MODE: 'shape', MASK_SRC: lastTarget && lastTarget !== BLANK ? lastTarget : 'ball' });
+      } else {
+        if (api.config.MASK_SRC && api.config.MASK_SRC !== BLANK) lastTarget = api.config.MASK_SRC;
+        apply({ MODE: 'shape', MASK_SRC: BLANK });
+      }
+    } else {
+      backgroundOn = !backgroundOn;
+      apply({ LAYER_SRC: backgroundOn ? chosenBackground : 'off' });
+    }
+
     paint();
-    apply({ LAYER_SRC: switchedOn ? chosen : 'off' });
   });
 
   sourceSelect.addEventListener('change', () => {
-    chosen = sourceSelect.value;
-    if (switchedOn) apply({ LAYER_SRC: chosen });
+    if (current === 'target') {
+      // Hand the choice to the Target section, which already knows what a name means — a shape,
+      // the audio modes, the imported mesh or the glyph.
+      if (!targetSelect) return;
+      targetSelect.value = sourceSelect.value;
+      targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
+
+    chosenBackground = sourceSelect.value;
+    if (backgroundOn) apply({ LAYER_SRC: chosenBackground });
   });
 
-  /*--- Sliders ---*/
-
-  const sliders = {};
-
-  function slider(key, label, min, max, step, value, format, toConfig, fromConfig) {
-    const row = el('div', 'row');
-    const shown = el('span', 'value', format(value));
-    const input = el('input');
-    input.type = 'range';
-    input.min = min;
-    input.max = max;
-    input.step = step;
-    input.value = value;
-    row.append(el('span', 'label', label), shown, input);
-    panel.appendChild(row);
-
-    input.addEventListener('input', () => {
-      const next = Number(input.value);
-      shown.textContent = format(next);
-      apply({ [key]: toConfig ? toConfig(next) : next });
+  loadButton.addEventListener('click', () => {
+    if (current === 'background') {
+      fileInput.click();
+      return;
+    }
+    // The target's own Load… picker: the same door as the Target section, so a picture and a mesh
+    // are still routed by their extension.
+    const section = Array.from(document.querySelectorAll('#sections .section')).find((node) => {
+      const heading = node.querySelector('h2');
+      return heading && heading.textContent === 'Target';
     });
-
-    sliders[key] = (configValue) => {
-      const shownValue = fromConfig ? fromConfig(configValue) : Number(configValue);
-      input.value = shownValue;
-      shown.textContent = format(shownValue);
-    };
-    return input;
-  }
-
-  const turn = Math.PI * 2;
-  const decimal = (places) => (number) => Number(number.toFixed(places));
-
-  slider('LAYER_SCALE', 'Size', 0.8, 8, 0.1, 3, (v) => `${v.toFixed(1)}×`);
-  slider('LAYER_SPIN', 'Turn', -0.5, 0.5, 0.005, -0.04,
-    (v) => `${v.toFixed(3)} turns/s`, (v) => v * turn, decimal(3));
-  slider('LAYER_ALPHA', 'Brightness', 0, 1, 0.05, 0.6, (v) => `${Math.round(v * 100)}%`);
-
-  // The layer's own audio weight: it scales the heights baked into its points.
-  const bandRow = el('div', 'row');
-  const bandShown = el('span', 'value', `${bandHeight.toFixed(2)}×`);
-  const bandInput = el('input');
-  bandInput.type = 'range';
-  bandInput.min = 0;
-  bandInput.max = 2;
-  bandInput.step = 0.05;
-  bandInput.value = bandHeight;
-  bandRow.append(el('span', 'label', 'Band height'), bandShown, bandInput);
-  panel.appendChild(bandRow);
-
-  bandInput.addEventListener('input', () => {
-    bandHeight = Number(bandInput.value);
-    bandShown.textContent = `${bandHeight.toFixed(2)}×`;
+    const target = section && Array.from(section.querySelectorAll('button')).find(
+      (button) => /^load/i.test(button.textContent.trim())
+    );
+    if (target) target.click();
+    else {
+      const file = document.getElementById('file');
+      if (file) file.click();
+    }
   });
-
-  bandInput.addEventListener('change', () => {
-    if (switchedOn) apply({ LAYER_SRC: chosen });
-  });
-
-  sliders.LAYER_BAND = (configValue) => {
-    bandHeight = Math.max(0, Math.min(2, Number(configValue) || 0));
-    bandInput.value = bandHeight;
-    bandShown.textContent = `${bandHeight.toFixed(2)}×`;
-  };
-
-  /*--- Loading a file for the background ---*/
-
-  loadButton.addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files && fileInput.files[0];
@@ -426,14 +561,10 @@
 
       const key = `hpaLayer:${++fileCount}`;
       api.shapes[key] = () => points;
+      loaded.set(key, file.name.replace(/\.[^.]+$/, '').slice(0, 22));
 
-      const option = el('option', '', file.name.replace(/\.[^.]+$/, '').slice(0, 22));
-      option.value = key;
-      sourceSelect.appendChild(option);
-      sourceSelect.value = key;
-
-      chosen = key;
-      switchedOn = true;
+      chosenBackground = key;
+      backgroundOn = true;
       paint();
       apply({ LAYER_SRC: key });
       if (status) status.textContent = 'background ready';
@@ -450,50 +581,61 @@
   if (anchor) anchor.after(panel);
   else root.appendChild(panel);
 
+  if (targetSelect) {
+    targetSelect.addEventListener('change', () => {
+      if (current === 'target') fillSources();
+    });
+  }
+
   registerShapes();
   paint();
 
-  /*--- Keeping the panel honest ---*/
+  /*--- Following the engine ---*/
 
-  function sync() {
+  // A reading of the layer's current state, so the panel only repaints when something moved.
+  function reading() {
     const api = engine();
     const config = api && api.config ? api.config : null;
-    if (!config) return false;
+    if (!config) return null;
+    return {
+      mask: String(config.MASK_SRC || ''),
+      layer: String(config.LAYER_SRC || 'off'),
+      mode: String(config.MODE || '')
+    };
+  }
 
-    if ('MASK_SRC' in config) {
-      targetOn = String(config.MASK_SRC) !== BLANK;
-      if (targetOn && config.MODE === 'shape') lastTarget = String(config.MASK_SRC);
-      paint();
-    }
+  let lastReading = reading();
 
-    if ('LAYER_SRC' in config) {
-      const source = String(config.LAYER_SRC || 'off');
-      switchedOn = source !== 'off';
-      if (switchedOn) {
-        chosen = source;
-        if (!Array.from(sourceSelect.options).some((option) => option.value === source)) {
-          const option = el('option', '', 'Loaded file');
-          option.value = source;
-          sourceSelect.appendChild(option);
-        }
-        sourceSelect.value = source;
-      }
-      paint();
-    }
+  function sync() {
+    const now = reading();
+    if (!now) return false;
 
-    for (const [key, update] of Object.entries(sliders)) {
-      if (key in config) update(config[key]);
+    if (now.mask !== BLANK && now.mode === 'shape') lastTarget = now.mask;
+    targetOn = now.mask !== BLANK;
+    backgroundOn = now.layer !== 'off';
+    if (backgroundOn) chosenBackground = now.layer;
+
+    const changed = !lastReading ||
+      now.mask !== lastReading.mask || now.layer !== lastReading.layer || now.mode !== lastReading.mode;
+    lastReading = now;
+
+    // The source list is only rebuilt when the layer or the target really moved; the flags and
+    // sliders are safe to touch every time the panel is looked at.
+    if (changed && document.activeElement !== layerSelect) paint();
+    else {
+      updateFlags();
+      refreshSliders();
     }
     return true;
   }
 
-  let tries = 0;
-  const timer = window.setInterval(() => {
-    if (sync() || ++tries > 24) window.clearInterval(timer);
-  }, 500);
+  // Everything else in the panel can move these: Reset, the Target list, Camera's Zoom, Look's Glow
+  // falloff, the Band height section, the Show modes. So the panel keeps watching the engine rather
+  // than trusting the state it last painted.
+  window.setInterval(sync, 600);
 
   const resetButton = document.getElementById('reset');
   if (resetButton) {
-    resetButton.addEventListener('click', () => window.setTimeout(sync, 600));
+    resetButton.addEventListener('click', () => window.setTimeout(() => { paint(); }, 600));
   }
 })();
