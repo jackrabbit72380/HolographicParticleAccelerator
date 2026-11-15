@@ -2,17 +2,19 @@
  *  Jackrabbit72380
  *  2026
  *
- *  Both layers at once. Their two on/off buttons sit together at the top, and each layer's own
- *  settings follow underneath it — the target's size, turn, brightness and band height, and the
- *  background's source, file, and the same four settings. Nothing is hidden behind a selector, so
- *  the second layer never looks as if it has no properties, and the rest of the panel carries on
- *  below.
+ *  One panel per layer, behind one dropdown. The Layer selector offers Target and Background and
+ *  shows that layer's whole panel: its on/off, its source, and the same four properties — size,
+ *  turn, brightness, band height. Only one is on screen at a time, so the target is not listed
+ *  twice, once at the top of the panel and once here.
  *
- *  The target's source is not repeated here: the Target section above owns the shape list, the
- *  picture and the mesh. The engine draws the background from its own LAYER_* settings, and has no
- *  size, turn or brightness of its own for the target, so the target layer's controls drive the
- *  settings only it moves: ZOOM, ROTATE_SPEED, GLOW and EQ_HEIGHT. Target off is a blank shape,
- *  because the engine has no opacity for the target and a shape with no points draws nothing.
+ *  The Target panel is the panel's own Target section, moved in whole rather than rebuilt: its
+ *  Load…, Rebuild, Random shape, shape list, 90° tilt box and all of controller.js's logic stay
+ *  exactly as they were, and nothing about importing a picture or a mesh changes.
+ *
+ *  The engine draws the background from its own LAYER_* settings, and has no size, turn or
+ *  brightness of its own for the target, so the target layer's controls drive the settings only it
+ *  moves: ZOOM, ROTATE_SPEED, GLOW and EQ_HEIGHT. Target off is a blank shape, because the engine
+ *  has no opacity for the target and a shape with no points is the one thing that draws nothing.
  */
 
 (() => {
@@ -263,41 +265,81 @@
     });
   }
 
-  /*--- The panel ---*/
+  /*--- The Layers panel: a dropdown, and a panel for each layer ---*/
+
+  const style = document.createElement('style');
+  style.textContent = [
+    '.section .layer-panel-inner{border:0;border-radius:0;background:none;padding:0;margin:0}',
+    '.layer-panel-inner[hidden]{display:none!important}',
+    '.section > h2 + .buttons, .layer-panel-inner > .buttons{margin-bottom:6px}'
+  ].join('');
+  document.head.appendChild(style);
 
   const panel = el('div', 'section');
   panel.appendChild(el('h2', '', 'Layers'));
 
-  // Both layers' on/off, side by side at the top of the section.
-  const toggles = el('div', 'buttons');
-  const targetToggle = el('button', '', 'Target layer');
-  const backgroundToggle = el('button', '', 'Background layer');
-  for (const button of [targetToggle, backgroundToggle]) {
-    button.type = 'button';
-    button.setAttribute('role', 'checkbox');
-    toggles.appendChild(button);
+  const chooserRow = el('div', 'row wide');
+  chooserRow.appendChild(el('span', 'label', 'Layer'));
+  const layerSelect = el('select');
+  for (const [value, label] of [['target', 'Target'], ['background', 'Background']]) {
+    const option = el('option', '', label);
+    option.value = value;
+    layerSelect.appendChild(option);
   }
-  panel.appendChild(toggles);
+  chooserRow.appendChild(layerSelect);
+  panel.appendChild(chooserRow);
 
-  function groupLabel(text) {
-    const label = el('div', 'label', text);
-    label.style.margin = '10px 0 4px';
-    label.style.fontSize = '11px';
-    label.style.color = 'var(--dim)';
-    return label;
-  }
+  // The Target panel is the Target section itself, moved in with everything it already had.
+  const targetSection = Array.from(root.children).find((node) => {
+    const heading = node.querySelector('h2');
+    return heading && heading.textContent === 'Target';
+  });
+  if (!targetSection) return;
+  targetSection.classList.add('layer-panel-inner');
+
+  const backgroundPanel = el('div', 'section layer-panel-inner');
+  backgroundPanel.appendChild(el('h2', '', 'Background'));
 
   /*--- State ---*/
 
+  let current = 'target';
   let targetOn = true;
   let backgroundOn = false;
   let lastTarget = 'ball';
   let chosenBackground = 'ball:layer';
 
-  /**
-   * The four properties, once for each layer: the same labels, the same ranges, the same units.
-   * read/write move between the slider's own unit and whatever CONFIG key that layer uses.
-   */
+  const sliders = [];
+
+  function toggleButton(what) {
+    const button = el('button', '', 'On');
+    button.type = 'button';
+    button.setAttribute('role', 'checkbox');
+    button.title = `Show or hide the ${what} layer`;
+    return button;
+  }
+
+  // Each panel opens with its own on/off, right under its heading.
+  const targetToggle = toggleButton('target');
+  const backgroundToggle = toggleButton('background');
+
+  function toggleRow(button) {
+    const row = el('div', 'buttons');
+    row.appendChild(button);
+    return row;
+  }
+
+  // Under the Target panel's own buttons, and after them on purpose: src/target-load.js looks for
+  // that first button row when it swaps Load image… and Model file… for one Load…, and a second
+  // row above it would hide them from it.
+  const targetButtons = targetSection.querySelector('.buttons');
+  const targetToggleRow = toggleRow(targetToggle);
+  if (targetButtons) targetButtons.after(targetToggleRow);
+  else targetSection.appendChild(targetToggleRow);
+
+  backgroundPanel.appendChild(toggleRow(backgroundToggle));
+
+  /*--- The four properties, once for each layer ---*/
+
   const PROPS = {
     target: [
       {
@@ -356,9 +398,7 @@
     ]
   };
 
-  const sliders = [];
-
-  function sliderRow(spec, layer) {
+  function sliderRow(spec, layer, parent) {
     const row = el('div', 'row');
     const shown = el('span', 'value', spec.show(spec.min));
     const input = el('input');
@@ -368,7 +408,7 @@
     input.step = spec.step;
     input.value = spec.min;
     row.append(el('span', 'label', spec.label), shown, input);
-    panel.appendChild(row);
+    parent.appendChild(row);
 
     input.addEventListener('input', () => {
       const value = Number(input.value);
@@ -384,34 +424,42 @@
     sliders.push({ spec, layer, shown, input });
   }
 
-  /*--- The target layer ---*/
-
-  panel.appendChild(groupLabel('Target layer'));
-  for (const spec of PROPS.target) sliderRow(spec, 'target');
-
-  /*--- The background layer ---*/
-
-  panel.appendChild(groupLabel('Background layer'));
+  /*--- The background panel's source ---*/
 
   const sourceRow = el('div', 'row wide');
   sourceRow.appendChild(el('span', 'label', 'Source'));
   const sourceSelect = el('select');
   sourceRow.appendChild(sourceSelect);
-  panel.appendChild(sourceRow);
+  backgroundPanel.appendChild(sourceRow);
 
   const loadRow = el('div', 'buttons');
   const loadButton = el('button', '', 'Load…');
   loadButton.type = 'button';
   loadRow.appendChild(loadButton);
-  panel.appendChild(loadRow);
+  backgroundPanel.appendChild(loadRow);
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = 'image/*,.obj,.ply';
   fileInput.hidden = true;
-  panel.appendChild(fileInput);
+  backgroundPanel.appendChild(fileInput);
 
-  for (const spec of PROPS.background) sliderRow(spec, 'background');
+  /*--- Filling both panels ---*/
+
+  // The target's sliders go with the rest of its settings, above its note.
+  const targetAnchor = targetSection.querySelector('.note');
+  for (const spec of PROPS.target) {
+    sliderRow(spec, 'target', targetSection);
+    if (targetAnchor) targetSection.insertBefore(targetSection.lastChild, targetAnchor);
+  }
+
+  for (const spec of PROPS.background) sliderRow(spec, 'background', backgroundPanel);
+
+  // The Layers panel takes the Target section's place at the top of the panel, so there is one
+  // place for the layers and the rest of the settings carry on below them.
+  root.insertBefore(panel, targetSection);
+  panel.appendChild(targetSection);
+  panel.appendChild(backgroundPanel);
 
   /*--- Keeping the panel and the engine in step ---*/
 
@@ -444,11 +492,20 @@
     }
   }
 
+  function showLayer(which) {
+    current = which;
+    layerSelect.value = which;
+    targetSection.hidden = which !== 'target';
+    backgroundPanel.hidden = which !== 'background';
+  }
+
   function updateFlags() {
     for (const [button, on, what] of [
       [targetToggle, targetOn, 'target'],
       [backgroundToggle, backgroundOn, 'background']
     ]) {
+      const label = on ? 'On' : 'Off';
+      if (button.textContent !== label) button.textContent = label;
       button.classList.toggle('on', on);
       button.setAttribute('aria-checked', on ? 'true' : 'false');
       button.title = `Show or hide the ${what} layer`;
@@ -457,6 +514,8 @@
     sourceSelect.disabled = !backgroundOn;
     loadButton.disabled = !backgroundOn;
   }
+
+  layerSelect.addEventListener('change', () => showLayer(layerSelect.value));
 
   targetToggle.addEventListener('click', () => {
     const api = engine();
@@ -515,17 +574,10 @@
     }
   });
 
-  // The panel sits where it always did: straight after the Band height section.
-  const anchor = Array.from(root.children).find((node) => {
-    const heading = node.querySelector('h2');
-    return heading && (heading.textContent === 'Band height' || heading.textContent === 'Visualizer');
-  });
-  if (anchor) anchor.after(panel);
-  else root.appendChild(panel);
-
   registerShapes();
   fillSources();
   updateFlags();
+  showLayer('target');
   refreshSliders();
 
   /*--- Following the engine ---*/
