@@ -30,7 +30,7 @@
     ['spear', 'Spear (3D)'],
     ['equalizer', 'Equalizer (audio bars)'],
     ['grid', 'Grid (audio bars)'],
-    ['blob3d', 'Blob (audio)']
+    ['blob3d', 'Blob (3D, audio)']
   ];
 
   const BLANK = 'hpaBlank';
@@ -248,7 +248,7 @@
   // The blob is a target like any other, so it belongs in the Target list.
   const targetSelect = root.querySelector('select');
   if (targetSelect && !Array.from(targetSelect.options).some((option) => option.value === 'blob3d')) {
-    const option = el('option', '', 'Blob (audio)');
+    const option = el('option', '', 'Blob (3D, audio)');
     option.value = 'blob3d';
     const meshOption = Array.from(targetSelect.options).find((item) => item.value === 'mesh');
     targetSelect.insertBefore(option, meshOption || null);
