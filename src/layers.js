@@ -2,15 +2,17 @@
  *  Jackrabbit72380
  *  2026
  *
- *  One layer at a time. A Layer selector offers the target layer and the background layer, and
- *  the controls under it — on/off, source, load, size, turn, brightness, band height — belong to
- *  whichever one is chosen. Both layers therefore have the same set of properties, in the same
- *  order and the same units, and the panel stays a single column instead of two sets of controls.
+ *  Both layers at once. Their two on/off buttons sit together at the top, and each layer's own
+ *  settings follow underneath it — the target's size, turn, brightness and band height, and the
+ *  background's source, file, and the same four settings. Nothing is hidden behind a selector, so
+ *  the second layer never looks as if it has no properties, and the rest of the panel carries on
+ *  below.
  *
- *  The engine draws the background from its own LAYER_* settings; the target has no size, turn or
- *  brightness of its own, so the target layer's controls drive the engine settings that only it
- *  moves: ZOOM, ROTATE_SPEED, GLOW and EQ_HEIGHT. Target off is a blank shape, because the engine
- *  has no opacity for the target and a shape with no points is the one thing that draws nothing.
+ *  The target's source is not repeated here: the Target section above owns the shape list, the
+ *  picture and the mesh. The engine draws the background from its own LAYER_* settings, and has no
+ *  size, turn or brightness of its own for the target, so the target layer's controls drive the
+ *  settings only it moves: ZOOM, ROTATE_SPEED, GLOW and EQ_HEIGHT. Target off is a blank shape,
+ *  because the engine has no opacity for the target and a shape with no points draws nothing.
  */
 
 (() => {
@@ -266,47 +268,27 @@
   const panel = el('div', 'section');
   panel.appendChild(el('h2', '', 'Layers'));
 
-  // Which layer the controls below belong to.
-  const layerRow = el('div', 'row wide');
-  layerRow.appendChild(el('span', 'label', 'Layer'));
-  const layerSelect = el('select');
-  for (const [value, label] of [['target', 'Target layer'], ['background', 'Background layer']]) {
-    const option = el('option', '', label);
-    option.value = value;
-    layerSelect.appendChild(option);
+  // Both layers' on/off, side by side at the top of the section.
+  const toggles = el('div', 'buttons');
+  const targetToggle = el('button', '', 'Target layer');
+  const backgroundToggle = el('button', '', 'Background layer');
+  for (const button of [targetToggle, backgroundToggle]) {
+    button.type = 'button';
+    button.setAttribute('role', 'checkbox');
+    toggles.appendChild(button);
   }
-  layerRow.appendChild(layerSelect);
-  panel.appendChild(layerRow);
+  panel.appendChild(toggles);
 
-  // On or off, and where its points come from: both act on the layer being shown.
-  const actionRow = el('div', 'buttons');
-  const onButton = el('button', '', 'On');
-  onButton.type = 'button';
-  onButton.setAttribute('role', 'checkbox');
-  actionRow.appendChild(onButton);
-
-  const loadButton = el('button', '', 'Load…');
-  loadButton.type = 'button';
-  actionRow.appendChild(loadButton);
-  panel.appendChild(actionRow);
-
-  // Where that layer's points come from.
-  const sourceRow = el('div', 'row wide');
-  sourceRow.style.marginTop = '4px';
-  sourceRow.appendChild(el('span', 'label', 'Source'));
-  const sourceSelect = el('select');
-  sourceRow.appendChild(sourceSelect);
-  panel.appendChild(sourceRow);
-
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = 'image/*,.obj,.ply';
-  fileInput.hidden = true;
-  panel.appendChild(fileInput);
+  function groupLabel(text) {
+    const label = el('div', 'label', text);
+    label.style.margin = '10px 0 4px';
+    label.style.fontSize = '11px';
+    label.style.color = 'var(--dim)';
+    return label;
+  }
 
   /*--- State ---*/
 
-  let current = 'target';
   let targetOn = true;
   let backgroundOn = false;
   let lastTarget = 'ball';
@@ -376,7 +358,7 @@
 
   const sliders = [];
 
-  for (const spec of PROPS.target) {
+  function sliderRow(spec, layer) {
     const row = el('div', 'row');
     const shown = el('span', 'value', spec.show(spec.min));
     const input = el('input');
@@ -387,54 +369,54 @@
     input.value = spec.min;
     row.append(el('span', 'label', spec.label), shown, input);
     panel.appendChild(row);
-    sliders.push({ shown, input });
-  }
 
-  sliders.forEach(({ shown, input }, index) => {
     input.addEventListener('input', () => {
-      const spec = PROPS[current][index];
       const value = Number(input.value);
       shown.textContent = spec.show(value);
       const patch = spec.write(value);
       apply(patch);
       // A changed band height is only baked into the points when the layer is rebuilt.
-      if (current === 'background' && 'LAYER_BAND' in patch && backgroundOn) {
+      if (layer === 'background' && 'LAYER_BAND' in patch && backgroundOn) {
         apply({ LAYER_SRC: chosenBackground });
       }
     });
-  });
+
+    sliders.push({ spec, layer, shown, input });
+  }
+
+  /*--- The target layer ---*/
+
+  panel.appendChild(groupLabel('Target layer'));
+  for (const spec of PROPS.target) sliderRow(spec, 'target');
+
+  /*--- The background layer ---*/
+
+  panel.appendChild(groupLabel('Background layer'));
+
+  const sourceRow = el('div', 'row wide');
+  sourceRow.appendChild(el('span', 'label', 'Source'));
+  const sourceSelect = el('select');
+  sourceRow.appendChild(sourceSelect);
+  panel.appendChild(sourceRow);
+
+  const loadRow = el('div', 'buttons');
+  const loadButton = el('button', '', 'Load…');
+  loadButton.type = 'button';
+  loadRow.appendChild(loadButton);
+  panel.appendChild(loadRow);
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/*,.obj,.ply';
+  fileInput.hidden = true;
+  panel.appendChild(fileInput);
+
+  for (const spec of PROPS.background) sliderRow(spec, 'background');
 
   /*--- Keeping the panel and the engine in step ---*/
 
-  function refreshSliders() {
-    const api = engine();
-    const config = (api && api.config) || {};
-    const specs = PROPS[current];
-
-    sliders.forEach(({ shown, input }, index) => {
-      if (document.activeElement === input) return;
-      const spec = specs[index];
-      const raw = Number(spec.read(config));
-      const value = Number.isFinite(raw) ? Math.min(spec.max, Math.max(spec.min, raw)) : spec.min;
-      input.value = value;
-      shown.textContent = spec.show(value);
-    });
-  }
-
   function fillSources() {
     sourceSelect.textContent = '';
-
-    if (current === 'target') {
-      // The Target section owns the list, so its options are mirrored rather than repeated.
-      const options = targetSelect ? Array.from(targetSelect.options) : [];
-      for (const option of options) {
-        const copy = el('option', '', option.textContent);
-        copy.value = option.value;
-        sourceSelect.appendChild(copy);
-      }
-      if (targetSelect) sourceSelect.value = targetSelect.value;
-      return;
-    }
 
     for (const [value, label] of SHAPES) {
       const option = el('option', '', label);
@@ -449,101 +431,60 @@
     sourceSelect.value = chosenBackground;
   }
 
-  // The cheap half of a repaint: what changed under the panel without its options being rebuilt,
-  // so an open select is never pulled out from under the pointer.
-  function updateFlags() {
-    layerSelect.value = current;
+  function refreshSliders() {
+    const api = engine();
+    const config = (api && api.config) || {};
 
-    const on = current === 'target' ? targetOn : backgroundOn;
-    const label = on ? 'On' : 'Off';
-    if (onButton.textContent !== label) onButton.textContent = label;
-    onButton.classList.toggle('on', on);
-    onButton.setAttribute('aria-checked', on ? 'true' : 'false');
-    onButton.title = current === 'target' ? 'Show or hide the target layer' : 'Show or hide the background layer';
-
-    sourceSelect.disabled = !on;
-    loadButton.disabled = !on;
-
-    if (document.activeElement !== sourceSelect) {
-      const chosen = current === 'target' ? targetSource() : chosenBackground;
-      if (chosen && sourceSelect.value !== chosen) sourceSelect.value = chosen;
+    for (const { spec, shown, input } of sliders) {
+      if (document.activeElement === input) continue;
+      const raw = Number(spec.read(config));
+      const value = Number.isFinite(raw) ? Math.min(spec.max, Math.max(spec.min, raw)) : spec.min;
+      input.value = value;
+      shown.textContent = spec.show(value);
     }
   }
 
-  // The target's own mask is the truth when the list offers it; the Target section's select is the
-  // fallback, because it names the audio modes and the glyph that the mask cannot describe.
-  function targetSource() {
-    const api = engine();
-    const mask = String((api && api.config && api.config.MASK_SRC) || '');
-    if (mask && Array.from(sourceSelect.options).some((option) => option.value === mask)) return mask;
-    return targetSelect ? targetSelect.value : sourceSelect.value;
+  function updateFlags() {
+    for (const [button, on, what] of [
+      [targetToggle, targetOn, 'target'],
+      [backgroundToggle, backgroundOn, 'background']
+    ]) {
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-checked', on ? 'true' : 'false');
+      button.title = `Show or hide the ${what} layer`;
+    }
+
+    sourceSelect.disabled = !backgroundOn;
+    loadButton.disabled = !backgroundOn;
   }
 
-  function paint() {
-    fillSources();
-    updateFlags();
-    refreshSliders();
-  }
-
-  layerSelect.addEventListener('change', () => {
-    current = layerSelect.value;
-    paint();
-  });
-
-  onButton.addEventListener('click', () => {
+  targetToggle.addEventListener('click', () => {
     const api = engine();
     if (!api) return;
 
-    if (current === 'target') {
-      targetOn = !targetOn;
-      if (targetOn) {
-        apply({ MODE: 'shape', MASK_SRC: lastTarget && lastTarget !== BLANK ? lastTarget : 'ball' });
-      } else {
-        if (api.config.MASK_SRC && api.config.MASK_SRC !== BLANK) lastTarget = api.config.MASK_SRC;
-        apply({ MODE: 'shape', MASK_SRC: BLANK });
-      }
+    targetOn = !targetOn;
+    if (targetOn) {
+      apply({ MODE: 'shape', MASK_SRC: lastTarget && lastTarget !== BLANK ? lastTarget : 'ball' });
     } else {
-      backgroundOn = !backgroundOn;
-      apply({ LAYER_SRC: backgroundOn ? chosenBackground : 'off' });
+      if (api.config.MASK_SRC && api.config.MASK_SRC !== BLANK) lastTarget = api.config.MASK_SRC;
+      apply({ MODE: 'shape', MASK_SRC: BLANK });
     }
+    updateFlags();
+  });
 
-    paint();
+  backgroundToggle.addEventListener('click', () => {
+    if (!engine()) return;
+    backgroundOn = !backgroundOn;
+    apply({ LAYER_SRC: backgroundOn ? chosenBackground : 'off' });
+    updateFlags();
   });
 
   sourceSelect.addEventListener('change', () => {
-    if (current === 'target') {
-      // Hand the choice to the Target section, which already knows what a name means — a shape,
-      // the audio modes, the imported mesh or the glyph.
-      if (!targetSelect) return;
-      targetSelect.value = sourceSelect.value;
-      targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      return;
-    }
-
     chosenBackground = sourceSelect.value;
     if (backgroundOn) apply({ LAYER_SRC: chosenBackground });
   });
 
-  loadButton.addEventListener('click', () => {
-    if (current === 'background') {
-      fileInput.click();
-      return;
-    }
-    // The target's own Load… picker: the same door as the Target section, so a picture and a mesh
-    // are still routed by their extension.
-    const section = Array.from(document.querySelectorAll('#sections .section')).find((node) => {
-      const heading = node.querySelector('h2');
-      return heading && heading.textContent === 'Target';
-    });
-    const target = section && Array.from(section.querySelectorAll('button')).find(
-      (button) => /^load/i.test(button.textContent.trim())
-    );
-    if (target) target.click();
-    else {
-      const file = document.getElementById('file');
-      if (file) file.click();
-    }
-  });
+  loadButton.addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files && fileInput.files[0];
@@ -565,7 +506,8 @@
 
       chosenBackground = key;
       backgroundOn = true;
-      paint();
+      fillSources();
+      updateFlags();
       apply({ LAYER_SRC: key });
       if (status) status.textContent = 'background ready';
     } catch (error) {
@@ -581,18 +523,13 @@
   if (anchor) anchor.after(panel);
   else root.appendChild(panel);
 
-  if (targetSelect) {
-    targetSelect.addEventListener('change', () => {
-      if (current === 'target') fillSources();
-    });
-  }
-
   registerShapes();
-  paint();
+  fillSources();
+  updateFlags();
+  refreshSliders();
 
   /*--- Following the engine ---*/
 
-  // A reading of the layer's current state, so the panel only repaints when something moved.
   function reading() {
     const api = engine();
     const config = api && api.config ? api.config : null;
@@ -605,28 +542,26 @@
   }
 
   let lastReading = reading();
+  let lastLayer = lastReading ? lastReading.layer : '';
 
   function sync() {
     const now = reading();
-    if (!now) return false;
+    if (!now) return;
 
     if (now.mask !== BLANK && now.mode === 'shape') lastTarget = now.mask;
     targetOn = now.mask !== BLANK;
     backgroundOn = now.layer !== 'off';
     if (backgroundOn) chosenBackground = now.layer;
 
-    const changed = !lastReading ||
-      now.mask !== lastReading.mask || now.layer !== lastReading.layer || now.mode !== lastReading.mode;
+    // A file loaded here, or a layer chosen elsewhere, has to appear in the Source list.
+    if (now.layer !== lastLayer) {
+      lastLayer = now.layer;
+      if (document.activeElement !== sourceSelect) fillSources();
+    }
     lastReading = now;
 
-    // The source list is only rebuilt when the layer or the target really moved; the flags and
-    // sliders are safe to touch every time the panel is looked at.
-    if (changed && document.activeElement !== layerSelect) paint();
-    else {
-      updateFlags();
-      refreshSliders();
-    }
-    return true;
+    updateFlags();
+    refreshSliders();
   }
 
   // Everything else in the panel can move these: Reset, the Target list, Camera's Zoom, Look's Glow
@@ -636,6 +571,9 @@
 
   const resetButton = document.getElementById('reset');
   if (resetButton) {
-    resetButton.addEventListener('click', () => window.setTimeout(() => { paint(); }, 600));
+    resetButton.addEventListener('click', () => window.setTimeout(() => {
+      fillSources();
+      updateFlags();
+    }, 600));
   }
 })();
