@@ -51,7 +51,7 @@
   const wasWebp = (t) => /^webp(\s+frame)?$/i.test(t);
   const wasWebm = (t) => /^(record\s+)?webm(\s*(5|10)\s*s)?$/i.test(t);
   const wasMp4 = (t) => /^(record\s+)?mp4(\s*\d+\s*s)?$/i.test(t);
-  const wasModel = (t, ext) => new RegExp(`^(${escape(ext)}|model\\s*\\(${escape(ext)}\\))`, 'i').test(t);
+  const wasModel = (t, ext) => new RegExp(`^(\\.${ext}|model\\s*\\(\\.${ext}\\))`, 'i').test(t);
 
   const isGone = (t) => wasPng(t) || wasWebp(t) || wasWebm(t) || wasMp4(t) || wasModel(t, 'obj') || wasModel(t, 'ply');
 
