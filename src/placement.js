@@ -15,7 +15,9 @@
  *  opens in its own 1280 × 720 window, centred on the screen, driving this particle window from
  *  outside it. Close that window and the panel comes back to the right-hand side.
  *
- *  The placement is remembered, so a reload brings the panel back where it was left.
+ *  Close, beside Reset, puts the panel away without moving it — as does Escape — and Home brings it
+ *  back in its next placement. The placement itself is remembered, so a reload brings the panel back
+ *  where it was left.
  */
 
 (() => {
@@ -49,7 +51,15 @@
     '#dock.place-top #sections,#dock.place-bottom #sections{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:0 14px;align-items:start}',
 
     // In window placement the panel lives in its own window instead.
-    '#dock.place-center{display:none!important}'
+    '#dock.place-center{display:none!important}',
+
+    // One more button in the bar, without letting the status push it out of the window.
+    '#dock .dock-bar .status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '#dock .dock-bar button{flex:none}',
+
+    // Closing sits beside Reset, sharing the row rather than owning it.
+    '.reset-row{display:flex;gap:8px}',
+    '.reset-row > button{flex:1 1 0;width:auto!important}'
   ].join('');
   document.head.appendChild(style);
 
@@ -65,6 +75,65 @@
     button.title = 'Where the panel sits — Home cycles right, left, top, bottom, window';
     bar.appendChild(button);
   }
+
+  /*--- Closing the panel ---*/
+
+  // Next to Reset, because it is the other thing you reach for when the panel is in the way. The
+  // panel moves Reset into the first row of sections when it builds itself, and that runs after this
+  // file, so the button is put beside it as soon as that row is there.
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'ghost';
+  closeButton.textContent = 'Close';
+  closeButton.title = 'Close the panel — Home brings it back (Esc)';
+  closeButton.addEventListener('click', closePanel);
+
+  let waited = 0;
+
+  function placeClose() {
+    const reset = document.getElementById('reset');
+    const row = reset && reset.parentNode;
+
+    if (row && row.classList && row.classList.contains('buttons') && row.closest('#sections')) {
+      row.classList.add('reset-row');
+      row.insertBefore(closeButton, reset.nextSibling);
+      return true;
+    }
+
+    // No Reset row after three seconds: the bar will do.
+    if (!closeButton.isConnected && bar && ++waited > 30) {
+      bar.appendChild(closeButton);
+      return true;
+    }
+    return false;
+  }
+
+  if (!placeClose()) {
+    const timer = window.setInterval(() => {
+      if (placeClose()) window.clearInterval(timer);
+    }, 100);
+  }
+
+  function closePanel() {
+    if (placement === 'center') {
+      closeGuide();
+      setPlacement('right');
+      return;
+    }
+    dock.classList.remove('open');
+    dock.setAttribute('aria-hidden', 'true');
+    const hint = document.getElementById('dock-hint');
+    if (hint) hint.hidden = false;
+  }
+
+  // Escape closes the panel too, unless a note is open — that card takes the first Escape as its own.
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (document.querySelector('.info-card:not([hidden])')) return;
+    if (!dock.classList.contains('open')) return;
+    event.preventDefault();
+    closePanel();
+  }, true);
 
   /*--- The guide window ---*/
 
