@@ -1,0 +1,172 @@
+/*  Holographic Particle Accelerator — phone and small-screen layout
+ *  Jackrabbit72380
+ *  2026
+ *
+ *  The panel and the guide's own bar were laid out for a desktop window: one row, no wrapping, and
+ *  a fixed 52 px header. On a phone the row is wider than the screen, so the last thing in it — the
+ *  Close guide button — hung off the edge and could not be tapped.
+ *
+ *  Everything here is inside a small-screen query, so the desktop layout is untouched. Bars wrap
+ *  instead of overflowing, the header gives up its fixed height and takes the room it needs, the
+ *  panel fills the width, the sections stack in one column, and buttons and sliders are made big
+ *  enough to hit with a thumb.
+ */
+
+@media (max-width: 700px) {
+    html {
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
+    html,
+    body {
+        overscroll-behavior: none;
+    }
+
+    /*--- The guide's own bar (controller.html) ---*/
+
+    body {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .bar {
+        flex: none;
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 52px;
+        gap: 8px;
+        padding: 9px 12px;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    .brand {
+        flex: 1 1 auto;
+        order: 0;
+        min-width: 0;
+    }
+
+    .bar h1 {
+        font-size: 13px;
+    }
+
+    .bar-actions {
+        flex: 1 1 100%;
+        order: 1;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .bar-actions .status {
+        flex: 1 1 100%;
+        max-width: none;
+        order: -1;
+        text-align: right;
+    }
+
+    .bar-actions .ghost,
+    .bar-actions button {
+        flex: 1 1 auto;
+        text-align: center;
+        min-height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .wrap {
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 0;
+        padding: 10px 10px 28px;
+        max-width: none;
+    }
+
+    /*--- The docked panel ---*/
+
+    #dock {
+        width: 100vw;
+        max-width: 100vw;
+        border-left: 0;
+    }
+
+    #dock .wrap {
+        padding: 10px 10px 24px;
+    }
+
+    #dock .dock-bar {
+        flex-wrap: wrap;
+        row-gap: 6px;
+        padding: 8px 10px;
+    }
+
+    /* The status gets the first line to itself, so the buttons beside it always fit. */
+    #dock .dock-bar .status {
+        flex: 1 1 100%;
+        order: -1;
+    }
+
+    #dock .dock-bar button {
+        flex: 1 1 auto;
+        min-height: 32px;
+    }
+
+    #dock .dock-bar .build-stamp {
+        flex: 0 0 auto;
+        align-self: center;
+    }
+
+    #dock.place-top,
+    #dock.place-bottom {
+        height: 64vh;
+    }
+
+    #dock.place-top #sections,
+    #dock.place-bottom #sections {
+        grid-template-columns: 1fr;
+    }
+
+    /*--- Touch ---*/
+
+    .section {
+        padding: 12px 13px 14px;
+    }
+
+    button {
+        min-height: 36px;
+        padding: 9px 12px;
+        font-size: 13px;
+    }
+
+    select,
+    input[type="text"] {
+        min-height: 36px;
+    }
+
+    input[type="range"] {
+        height: 6px;
+        margin: 10px 0 4px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        width: 20px;
+        height: 20px;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+    }
+
+    .row {
+        margin-bottom: 14px;
+    }
+
+    #caption {
+        bottom: 9%;
+        width: 90vw;
+    }
+}
