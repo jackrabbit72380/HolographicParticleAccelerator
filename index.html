@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="author" content="Jackrabbit72380">
     <title>Holographic Particle Accelerator</title>
-    <link rel="stylesheet" type="text/css" href="src/controller.css?v=20261115f">
-    <link rel="stylesheet" type="text/css" href="src/style.css?v=20261115f">
+    <link rel="stylesheet" type="text/css" href="src/controller.css?v=20261116a">
+    <link rel="stylesheet" type="text/css" href="src/style.css?v=20261116a">
   </head>
 
   <body>
@@ -44,61 +44,67 @@
     <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
 
     <!-- Turn, tumble and roll as on/off switches; wraps the model matrix before the engine draws -->
-    <script src="src/axes.js?v=20261115f"></script>
+    <script src="src/axes.js?v=20261116a"></script>
 
     <!-- Engine, shapes included -->
-    <script src="src/engine.js?v=20261115f"></script>
+    <script src="src/engine.js?v=20261116a"></script>
 
     <!-- The blob target: a sphere the music deforms -->
-    <script src="src/blob.js?v=20261115f"></script>
+    <script src="src/blob.js?v=20261116a"></script>
 
     <!-- Keeps the controller window attached if it is reloaded -->
-    <script src="src/relay.js?v=20261115f"></script>
+    <script src="src/relay.js?v=20261116a"></script>
 
     <!-- HPA.reset(): puts the shipped settings back -->
-    <script src="src/reset.js?v=20261115f"></script>
+    <script src="src/reset.js?v=20261116a"></script>
 
     <!-- HPA.show(): inside spin, visualizer and rainbow autopilot -->
-    <script src="src/show.js?v=20261115f"></script>
+    <script src="src/show.js?v=20261116a"></script>
 
     <!-- HPA.exportModel(): the assembled target as a downloadable model -->
-    <script src="src/export.js?v=20261115f"></script>
+    <script src="src/export.js?v=20261116a"></script>
 
     <!-- HPA.importModel(): a Blender mesh (OBJ / PLY) as the target -->
-    <script src="src/import.js?v=20261115f"></script>
+    <script src="src/import.js?v=20261116a"></script>
 
     <!-- Docks the panel into this window; runs before controller.js, which needs it -->
-    <script src="src/dock.js?v=20261115f"></script>
+    <script src="src/dock.js?v=20261116a"></script>
 
     <!-- The whole control panel -->
-    <script src="src/controller.js?v=20261115f"></script>
+    <script src="src/controller.js?v=20261116a"></script>
 
     <!-- The 90 degree fix for models that arrive Z-up; needs the Target section above it -->
-    <script src="src/model-tilt.js?v=20261115f"></script>
+    <script src="src/model-tilt.js?v=20261116a"></script>
 
     <!-- One panel per layer, behind the Layers dropdown -->
-    <script src="src/layers.js?v=20261115f"></script>
+    <script src="src/layers.js?v=20261116a"></script>
 
     <!-- One Load… for pictures and meshes, in place of two buttons -->
-    <script src="src/target-load.js?v=20261115f"></script>
+    <script src="src/target-load.js?v=20261116a"></script>
 
     <!-- Caption from the track, picture or model you loaded -->
-    <script src="src/caption-names.js?v=20261115f"></script>
+    <script src="src/caption-names.js?v=20261116a"></script>
 
     <!-- Runs last: the notes live in an info card at each section's pill -->
-    <script src="src/panel-compact.js?v=20261115f"></script>
+    <script src="src/panel-compact.js?v=20261116a"></script>
 
     <!-- Short capture labels, in two rows -->
-    <script src="src/panel-copy.js?v=20261115f"></script>
+    <script src="src/panel-copy.js?v=20261116a"></script>
 
     <!-- Capture: record the whole build from its first frame -->
-    <script src="src/record-start.js?v=20261115f"></script>
+    <script src="src/record-start.js?v=20261116a"></script>
+
+    <!-- A starfield as a source for either layer, with its own controls -->
+    <script src="src/starfield.js?v=20261116a"></script>
+
+    <!-- Reverse: build up, turn three times, dissolve out, start over -->
+    <script src="src/reverse.js?v=20261116a"></script>
 
     <!-- The Show options as four on/off switches -->
-    <script src="src/show-switches.js?v=20261115f"></script>
+    <script src="src/show-switches.js?v=20261116a"></script>
 
     <!-- The build id in the corner of the panel -->
-    <script src="src/build.js?v=20261115f"></script>
+    <script src="src/build.js?v=20261116a"></script>
 
   </body>
 
