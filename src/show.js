@@ -6,7 +6,10 @@
  *  it reads the audio level the panel already sends, breathes the zoom and walks the tint
  *  round the wheel. Everything it touches is CONFIG, so the engine itself needs no changes.
  *
- *  HPA.show({ mode: 'off' | 'inside' | 'visualizer' | 'rainbow', preset, pulse, drift })
+ *  The parts run separately as well as together, so the panel can offer them as switches:
+ *  the rainbow owns the tint, the visualizer breathes the zoom, and both can be on at once.
+ *
+ *  HPA.show({ mode: 'off' | 'inside' | 'visualizer' | 'rainbow', visualizer, rainbow, preset, pulse, drift })
  */
 
 (() => {
@@ -82,39 +85,59 @@
         baseColor = null;
     }
 
+    // Which parts are running. The mode is the older, one-at-a-time way of asking for them; the two
+    // flags let the switches turn each part on by itself.
+    function parts(source) {
+        return {
+            rainbow: source.rainbow === true || source.mode === 'rainbow',
+            visualizer: source.visualizer === true || source.mode === 'visualizer'
+        };
+    }
+
+    function busy(source) {
+        const on = parts(source);
+        return on.rainbow || on.visualizer;
+    }
+
     function tick(now) {
         requestAnimationFrame(tick);
         const seconds = last ? Math.min(0.1, (now - last) / 1000) : 0;
         last = now;
-        if (state.mode === 'off' || state.mode === 'inside') return;
+
+        const on = parts(state);
+        if (!on.rainbow && !on.visualizer) return;
 
         const level = clamp(Number(api.config.AUDIO) || 0, 0, 1);
 
-        if (state.mode === 'rainbow') {
+        if (on.rainbow) {
             // A turn every five seconds at rest, faster as drift goes up.
             hue = (hue + 72 * seconds * (1 + state.drift * 4)) % 360;
+        }
+
+        // Rainbow on its own only walks the tint; with the visualizer it leaves the zoom alone.
+        if (!on.visualizer) {
             api.set({ COLOR: hslToRgb(hue) });
             return;
         }
 
         const look = LOOKS[state.preset] || LOOKS.pulse;
-        hue = (hue + look.hue * seconds * (1 + state.drift * 2 + level)) % 360;
+        if (!on.rainbow) hue = (hue + look.hue * seconds * (1 + state.drift * 2 + level)) % 360;
         const breathe = Math.sin(now / 1400) * look.breathe;
         const zoom = clamp(baseZoom * (1 + state.pulse * (look.zoom * level + breathe)), 0.35, 6);
         api.set({ COLOR: hslToRgb(hue), ZOOM: zoom });
     }
 
     api.show = (options = {}) => {
-        const next = options.mode || state.mode;
-        if (next !== state.mode) {
-            if (state.mode === 'off') capture();
-            if (next === 'off') release();
-        }
+        const before = busy(state);
 
         state = { ...state, ...options };
         if (!(state.preset in LOOKS)) state.preset = DEFAULTS.preset;
         state.pulse = clamp(Number(state.pulse), 0, 1);
         state.drift = clamp(Number(state.drift), 0, 1);
+
+        const after = busy(state);
+        if (!before && after) capture();
+        if (before && !after) release();
 
         return { ...state };
     };
@@ -122,9 +145,9 @@
     api.show.state = () => ({ ...state });
 
     api.show.reset = () => {
-        const wasOff = state.mode === 'off';
+        const wasBusy = busy(state);
         state = { ...DEFAULTS };
-        if (!wasOff) release();
+        if (wasBusy) release();
         return { ...state };
     };
 
