@@ -18,12 +18,13 @@
   const style = document.createElement('style');
   style.textContent = [
     '.section{position:relative}',
-    '.info-pill{position:absolute;top:9px;right:2px;width:18px;height:18px;margin:0;padding:0;',
+    // 24 px across: small enough to sit in a heading's corner, large enough to hit on a phone.
+    '.info-pill{position:absolute;top:6px;right:2px;width:24px;height:24px;margin:0;padding:0;',
     'border-radius:50%;border:1px solid rgba(143,216,255,.45);background:transparent;color:inherit;',
-    'font:600 11px/1 system-ui,sans-serif;cursor:pointer;opacity:.7;z-index:2}',
+    'font:600 12px/1 system-ui,sans-serif;cursor:pointer;opacity:.7;z-index:2}',
     '.info-pill:hover,.info-pill.open{opacity:1;border-color:#8fd8ff}',
-    '.section h2{padding-right:22px}',
-    '.info-card{position:absolute;top:30px;right:0;z-index:30;width:min(320px,100%);max-height:56vh;',
+    '.section h2{padding-right:30px}',
+    '.info-card{position:absolute;top:34px;right:0;z-index:30;width:min(320px,100%);max-height:56vh;',
     'overflow-y:auto;background:#0e1620;border:1px solid #26405a;border-radius:8px;padding:10px 12px;',
     'box-shadow:0 18px 40px rgba(0,0,0,.6);text-align:left}',
     '.info-card[hidden]{display:none!important}',

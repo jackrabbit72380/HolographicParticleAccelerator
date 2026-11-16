@@ -45,9 +45,10 @@
 
   if (typeof MediaRecorder === 'undefined') return;
 
+  // Beside WebM and MP4, the label says which recording this is: the whole build, from frame one.
   const button = document.createElement('button');
   button.type = 'button';
-  button.textContent = 'From start';
+  button.textContent = 'Record from start';
   button.title = 'Record one whole build as WebM, from the first frame of the assembly';
   grid.appendChild(button);
 
@@ -90,7 +91,7 @@
       setStatus(String((error && error.message) || error), 'bad');
     } finally {
       button.disabled = false;
-      button.textContent = 'From start';
+      button.textContent = 'Record from start';
     }
   });
 })();
