@@ -135,10 +135,18 @@
         padding: 12px 13px 14px;
     }
 
-    button {
+    button:not(.info-pill) {
         min-height: 36px;
         padding: 9px 12px;
         font-size: 13px;
+    }
+
+    /* The notes pill stays the small circle it is, in the heading's corner: it is not a target to
+       press with a thumb, and its size is what keeps it clear of the buttons on the row below. */
+    .info-pill {
+        min-height: 0;
+        padding: 0;
+        font-size: 11px;
     }
 
     select,
@@ -163,6 +171,10 @@
 
     .row {
         margin-bottom: 14px;
+    }
+
+    .layer-panel-inner > h2 {
+        margin-bottom: 16px;
     }
 
     #caption {
