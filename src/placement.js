@@ -67,7 +67,11 @@
     // buttons and a status line however long the message is.
     '#dock .dock-bar .place-button{flex:none;width:26px;height:26px;min-height:0;padding:0;',
     'font:400 15px/1 system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;',
-    'border-radius:6px;margin-right:4px}'
+    'border-radius:6px;margin-left:auto;margin-right:4px}',
+
+    // The × would take the spare width for itself and leave the ↻ behind. With the ↻ already
+    // holding the row open, the × only needs to sit down beside it.
+    '#dock .dock-bar .place-button + .x-button{margin-left:0}'
   ].join('');
   document.head.appendChild(style);
 
