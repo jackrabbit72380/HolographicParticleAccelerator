@@ -58,15 +58,16 @@
     // In window placement the panel lives in its own window instead.
     '#dock.place-center{display:none!important}',
 
-    // Two buttons in the bar, without letting the status push them out of the window.
-    '#dock .dock-bar .status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    // The status takes the room the message does not need, so the two small squares stay together
+    // at the right end of the bar however long the message is.
+    '#dock .dock-bar .status{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '#dock .dock-bar button{flex:none}',
 
     // The same small square as the × at the far end: one glyph, no word, so the bar is two
     // buttons and a status line however long the message is.
     '#dock .dock-bar .place-button{flex:none;width:26px;height:26px;min-height:0;padding:0;',
     'font:400 15px/1 system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;',
-    'border-radius:6px}'
+    'border-radius:6px;margin-right:4px}'
   ].join('');
   document.head.appendChild(style);
 
