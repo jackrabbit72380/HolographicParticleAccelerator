@@ -19,6 +19,10 @@
  *  puts the panel away without moving it, as does Escape, and Home brings it back in its next
  *  placement. The placement itself is remembered, so a reload brings the panel back where it was
  *  left.
+ *
+ *  The bar holds two small squares and no words: this ↻, which cycles the placements, and the ×
+ *  that closes the panel. Which place the panel is in now is in the ↻'s label and tooltip, so a
+ *  long status message keeps the row it needs.
  */
 
 (() => {
@@ -56,7 +60,13 @@
 
     // Two buttons in the bar, without letting the status push them out of the window.
     '#dock .dock-bar .status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-    '#dock .dock-bar button{flex:none}'
+    '#dock .dock-bar button{flex:none}',
+
+    // The same small square as the × at the far end: one glyph, no word, so the bar is two
+    // buttons and a status line however long the message is.
+    '#dock .dock-bar .place-button{flex:none;width:26px;height:26px;min-height:0;padding:0;',
+    'font:400 15px/1 system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;',
+    'border-radius:6px}'
   ].join('');
   document.head.appendChild(style);
 
@@ -68,8 +78,10 @@
   if (bar) {
     button = document.createElement('button');
     button.type = 'button';
-    button.className = 'ghost';
-    button.title = 'Where the panel sits — Home cycles right, left, top, bottom, window';
+    button.className = 'ghost place-button';
+    button.textContent = '↻';
+    button.title = 'Where the panel sits — click to move it: right, left, top, bottom, window';
+    button.setAttribute('aria-label', 'Panel placement: right — click to move it');
     bar.appendChild(button);
   }
 
@@ -178,8 +190,10 @@
   function paint() {
     for (const name of ORDER) dock.classList.toggle('place-' + name, name === placement);
     if (button) {
-      button.textContent = NAMES[placement];
-      button.setAttribute('aria-label', `Panel placement: ${NAMES[placement]}`);
+      // The glyph cycles the placements; the place it is in now is in the label and the tooltip,
+      // where it costs the row no width.
+      button.setAttribute('aria-label', `Panel placement: ${NAMES[placement]} — click to move it`);
+      button.title = `Where the panel sits: ${NAMES[placement].toLowerCase()} — click to move it`;
     }
   }
 

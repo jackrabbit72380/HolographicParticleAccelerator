@@ -6,7 +6,8 @@
  *  with its heading, and the text itself opens in a card at that pill — never in the panel, where
  *  it used to push the controls about and sit under the buttons. It also takes the Equalizer ring
  *  button off the Visualizer section, because the same target already sits in the Target list as
- *  Equalizer (audio bars) — one way in is enough.
+ *  Equalizer (audio bars) — one way in is enough. The bar's status line is given its capital here
+ *  too, so the panel reads as sentences throughout.
  */
 
 (() => {
@@ -115,5 +116,23 @@
       pill.setAttribute('aria-expanded', 'true');
       opened = entry;
     });
+  }
+
+  /*--- The status line reads as a sentence ---*/
+
+  // "reconnected — animation kept running" is how the string was first spoken; a sentence starts
+  // with a capital, so the bar says "Reconnected …". The observer is what keeps it true for the
+  // messages controller.js and the capture buttons write later.
+  const status = document.getElementById('status');
+
+  if (status) {
+    const tidy = () => {
+      const text = status.textContent;
+      if (!text || !/^[a-z]/.test(text)) return;
+      status.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+    };
+
+    tidy();
+    new MutationObserver(tidy).observe(status, { childList: true, characterData: true, subtree: true });
   }
 })();
