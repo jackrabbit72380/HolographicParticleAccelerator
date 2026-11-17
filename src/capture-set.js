@@ -170,35 +170,14 @@
     exportRow.appendChild(button);
   }
 
-  // The model note belongs with the model buttons, wherever they now live.
+  // The model note belongs with the model buttons, wherever they now live. It only moves: one
+  // note in this section is all there is to do, because src/panel-compact.js runs after this file
+  // on both pages and wraps every section's notes behind its "i" pill when it scans.
   const modelNote = Array.from(capture.querySelectorAll('.note')).find((note) =>
     /^the model is the chosen target/i.test(note.textContent.trim()));
   if (modelNote) {
     modelNote.hidden = false;
-
-    // The panel's other notes sit behind their section's pill; this one gets the same treatment
-    // where that card is in use (the particle window's panel), and stays plain where it is not.
-    if (document.querySelector('#sections .info-card')) {
-      const card = el('div', 'info-card');
-      card.hidden = true;
-      card.setAttribute('role', 'note');
-      card.appendChild(modelNote);
-      exportSection.appendChild(card);
-
-      const pill = el('button', 'info-pill', 'i');
-      pill.type = 'button';
-      pill.title = 'What this section does';
-      pill.setAttribute('aria-expanded', 'false');
-      pill.addEventListener('click', () => {
-        const opening = card.hidden;
-        card.hidden = !opening;
-        pill.classList.toggle('open', opening);
-        pill.setAttribute('aria-expanded', opening ? 'true' : 'false');
-      });
-      exportSection.appendChild(pill);
-    } else {
-      exportSection.appendChild(modelNote);
-    }
+    exportSection.appendChild(modelNote);
   }
 
   capture.after(exportSection);
