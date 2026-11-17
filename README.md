@@ -27,7 +27,7 @@ Written by **Jackrabbit72380**. No libraries, no build step.
 | `src/reverse.js`, `src/target-load.js` | Build up, turn three times, dissolve out; one Load… for pictures and meshes. |
 | `src/capture-set.js`, `src/record-start.js` | WebM and MP4 with one length, Export, and one whole build from frame one. |
 | `src/caption-names.js`, `src/model-tilt.js` | The caption taken from what you loaded, and the 90° fix for Z-up models. |
-| `src/panel-compact.js`, `src/panel-copy.js` | Notes behind each section's "i" pill, and the panel's wording. |
+| `src/panel-compact.js`, `src/panel-copy.js` | Notes behind each section's "i" pill, the panel's wording, and the status line's capital. |
 | `src/style.css`, `src/controller.css`, `src/mobile.css` | Styling, and the phone layout in one small-screen query. |
 | `res/hpa-glyph.svg` | Optional flat target — a picture, so it stays flat. |
 
@@ -53,11 +53,11 @@ field does not need it, so typing a caption keeps its own Home key.
 **Home** moves the panel round five places: **right**, **left**, **top**, **bottom**, **window**,
 and back. Top and bottom are wide and short, so the sections lay out across them in columns; in
 window the panel is not docked at all and opens in a 1280 × 720 window of its own. The placement is
-remembered, and the button beside the status names it.
+remembered, and the ↻ beside the status moves it on — its label and tooltip name the place.
 
 **Close guide** — the × at the far right of the panel's bar, and of the guide window's bar — puts
-the panel away without moving it, as does **Escape**, and Home brings it back. The × is one small
-boxed glyph rather than a word, so closing never costs the row its space. Escape closes an open
+the panel away without moving it, as does **Escape**, and Home brings it back. The × and the ↻ are
+small squares rather than words, so the bar never spends its row on either. Escape closes an open
 note first.
 
 ### The separate window
@@ -68,7 +68,7 @@ window**. Both pages are same-origin, so the panel holds a live reference to the
 The panel re-checks the link every 700 ms, so closing the particle window shows *particle window
 closed* instead of silently doing nothing. Reloading the panel does not cost the animation:
 `src/relay.js` keeps offering the player window to its opener, so the panel finds it again and says
-*reconnected — animation kept running*. If popups are blocked the panel says so.
+*Reconnected — animation kept running*. If popups are blocked the panel says so.
 
 ### On a phone
 
